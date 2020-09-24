@@ -784,6 +784,16 @@ service extSdUFSVold /system/bin/extSDCardServiceVold
 
 on fs
     mount_all /vendor/etc/fstab.${ro.hardware}
+
+    # debug boot process
+    mkdir /data/debug/ 0744 logd system
+    rm /data/debug/boot_lc_full.txt
+    rm /data/debug/boot_lc_crash.txt
+    rm /data/debug/boot_lc_kernel.txt
+    start boot_lc
+    start boot_lc_kernel
+    start boot_lc_crash
+
     setprop ro.crypto.fuse_sdcard true
     chown radio system /mnt/vendor/efs
     mount none /mnt/vendor/efs /efs bind
@@ -1021,9 +1031,38 @@ service sem_daemon /system/bin/sem_daemon
     group system nfc
     disabled
 
+service boot_lc /system/bin/logcat -b all -D -f /data/debug/boot_lc_full.txt
+    class main
+    user root
+    group root system
+    disabled
+    oneshot
+
+service boot_lc_crash /system/bin/logcat -b crash -D -f /data/debug/boot_lc_crash.txt
+    class main
+    user root
+    group root system
+    disabled
+    oneshot
+
+service boot_lc_kernel /system/bin/logcat -b kernel -D -f /data/debug/boot_lc_kernel.txt
+    class main
+    user root
+    group root system
+    disabled
+    oneshot
+
 on property:sys.boot_completed=1
     setprop security.semdaemonfinish 0
     start sem_daemon
+    stop boot_lc
+    stop boot_lc_crash
+    stop boot_lc_kernel
+
+on property:dev.bootcomplete=1
+    stop boot_lc
+    stop boot_lc_crash
+    stop boot_lc_kernel
 
 on property:security.semdaemonfinish=1
     stop sem_daemon
